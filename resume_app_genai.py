@@ -94,8 +94,8 @@ if resume_text:
         def predict_resume(text):
             cleaned = clean_text(text)
             proba = model.predict_proba([cleaned])[0]
-            top_idx = np.argsort(proba)[-3:][::-1]
-            top_labels = label_encoder.inverse_transform(top_idx)
+            top_indices = np.argsort(proba)[::-1][:3]
+            top_roles = [(label_encoder.inverse_transform([i])[0], round(proba[i]*100, 2)) for i in top_indices]
             top_scores = proba[top_idx]
             return list(zip(top_labels, top_scores))
 
@@ -103,6 +103,7 @@ if resume_text:
             with st.spinner("Analyzing with ML model..."):
                 predictions = predict_resume(resume_text)
                 st.success("✅ Top Predictions:")
+                print("Extracted resume text:\n", resume_text)
                 for i, (label, score) in enumerate(predictions, 1):
                     st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
             st.session_state["top_role"] = predictions[0][0]
