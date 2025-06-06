@@ -91,8 +91,8 @@ if resume_text:
     tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 GPT Resume Feedback"])
 
     with tab1:
-        def predict_resume(text):
-            cleaned = clean_text(text)
+        def predict_resume(resume_text):
+            cleaned = clean_text(resume_text)
             proba = model.predict_proba([cleaned])[0]
             top_idx = np.argsort(proba)[::-1][:3]
             top_labels = label_encoder.inverse_transform(top_idx)
@@ -105,7 +105,7 @@ if resume_text:
                 st.success("✅ Top Predictions:")
                 print("Extracted resume text:\n", resume_text)
                 for i, (label, score) in enumerate(predictions, 1):
-                    st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
+                    st.markdown(f"**{i}. {label}** – {round(score * 100, 2)}% confidence")
             st.session_state["top_role"] = predictions[0][0]
 
     with tab2:
