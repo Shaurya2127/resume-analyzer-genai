@@ -95,7 +95,7 @@ if resume_text:
             cleaned = clean_text(text)
             proba = model.predict_proba([cleaned])[0]
             top_idx = np.argsort(proba)[::-1][:3]
-            top_labels = [(label_encoder.inverse_transform([i])[0], round(proba[i]*100, 2)) for i in top_indices]
+            top_labels = label_encoder.inverse_transform(top_idx)
             top_scores = proba[top_idx]
             return list(zip(top_labels, top_scores))
 
