@@ -44,7 +44,7 @@ streamlit run resume_app_genai.py
 ```
 
 🚀 Live Demo
-🔗 Streamlit App (Live)
+🔗 Streamlit App (Live) - [ https://resume-analyzer-genai-kuqpbfhz9wx7fhj8i6oz77.streamlit.app/ ]
 
 📚 Technologies Used
 Python, Scikit-learn, Pandas, NLTK
@@ -55,7 +55,6 @@ Streamlit (frontend)
 
 PyMuPDF (for PDF text extraction)
 
-📬 Contact
 📧 shauryachauhan721@gmail.com
-🔗 LinkedIn
+🔗 LinkedIn - [   
 🔗 GitHub
