@@ -96,10 +96,19 @@ if resume_text:
     tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 
     with tab1:
+        with tab1:
+    st.header("🧠 Predict Your Resume's Job Role (ML-Based)")
+
+    uploaded_file = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="ml_tab")
+
+    if uploaded_file:
+        resume_text = extract_text_from_pdf(uploaded_file)
+        st.text_area("📄 Extracted Resume Text", resume_text, height=200)
+
         def predict_resume(resume_text, confidence_threshold=0.15):
             cleaned = clean_text(resume_text)
             proba = model.predict_proba([cleaned])[0]
-            top_idx = np.argsort(proba)[::-1][:3]
+            top_idx = np.argsort(proba)[::-1][:3]  # Top 3 roles
             top_labels = label_encoder.inverse_transform(top_idx)
             top_scores = proba[top_idx]
             return [(label, score) for label, score in zip(top_labels, top_scores) if score >= confidence_threshold]
@@ -107,29 +116,51 @@ if resume_text:
         if st.button("🔍 Predict Job Role"):
             with st.spinner("Analyzing with ML model..."):
                 predictions = predict_resume(resume_text)
+
                 if predictions:
-                    st.success("✅ Top Predictions")
+                    st.success("✅ Top Role Predictions")
                     for i, (label, score) in enumerate(predictions, 1):
                         st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
                     st.session_state["top_role"] = predictions[0][0]
-            
-            role_list = [p[0] for p in predictions]
-            verified = validate_role_with_gemini(resume_text, role_list)
-            st.markdown(f"🔍 **Gemini-Validated Role**: `{verified}`")
-        else:
-            st.warning("🤔 No high-confidence predictions found.")
+
+                    # Gemini Role Validation (Optional)
+                    role_list = [p[0] for p in predictions]
+                    try:
+                        verified = validate_role_with_gemini(resume_text, role_list)
+                        st.markdown(f"🔍 **Gemini-Validated Role**: `{verified}`")
+                    except Exception as e:
+                        st.warning(f"⚠️ Gemini validation failed: {e}")
+                else:
+                    st.warning("🤔 No high-confidence roles found.")
+
 
     with tab2:
+        with tab2:
+    st.header("📝 Resume Feedback using Gemini AI")
+
+    # Upload resume separately in this tab (if not using session state)
+    uploaded_file_genai = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="genai_tab")
+
+    if uploaded_file_genai:
+        resume_text = extract_text_from_pdf(uploaded_file_genai)
+        st.text_area("📄 Extracted Resume Text", resume_text, height=200)
+
+        # Let user input a preferred job role
+        manual_role = st.text_input("🎯 What job role are you applying to?")
+
+        # Use fallback from session if available (e.g., predicted from Tab 1)
+        top_role = st.session_state.get("top_role", "Data Analyst")
+        selected_role = manual_role if manual_role else top_role
+
         if st.button("🧠 Get Gemini Feedback"):
-            with st.spinner("Contacting Gemini..."):
-                # Let user input a preferred job role
-                manual_role = st.text_input("🎯 Enter your target job role (optional)", "")
-                top_role = st.session_state.get("top_role", "Data Analyst")
-                # Use user input if provided, else fallback to top_role
-                selected_role = manual_role if manual_role else top_role
-                feedback = get_resume_feedback_gemini(resume_text, selected_role)
-                st.markdown("### 💬 Gemini Suggestions")
-                st.info(feedback)
+            if selected_role and resume_text:
+                with st.spinner("Generating feedback from Gemini..."):
+                    feedback = get_resume_feedback_gemini(resume_text, selected_role)
+                    st.markdown("### 💬 Gemini Suggestions")
+                    st.info(feedback)
+            else:
+                st.warning("Please enter a target role and upload a valid resume.")
+
 
 st.markdown("---")
 st.markdown("Made by **Shaurya Chauhan**")
