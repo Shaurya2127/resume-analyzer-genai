@@ -96,8 +96,7 @@ if resume_text:
     tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 
     with tab1:
-        with tab1:
-    st.header("🧠 Predict Your Resume's Job Role (ML-Based)")
+        st.header("🧠 Predict Your Resume's Job Role (ML-Based)")
 
     uploaded_file = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="ml_tab")
 
@@ -132,11 +131,11 @@ if resume_text:
                         st.warning(f"⚠️ Gemini validation failed: {e}")
                 else:
                     st.warning("🤔 No high-confidence roles found.")
+    
 
 
     with tab2:
-        with tab2:
-    st.header("📝 Resume Feedback using Gemini AI")
+        st.header("📝 Resume Feedback using Gemini AI")
 
     # Upload resume separately in this tab (if not using session state)
     uploaded_file_genai = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="genai_tab")
@@ -160,7 +159,7 @@ if resume_text:
                     st.info(feedback)
             else:
                 st.warning("Please enter a target role and upload a valid resume.")
-
+        
 
 st.markdown("---")
 st.markdown("Made by **Shaurya Chauhan**")
