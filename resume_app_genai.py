@@ -32,6 +32,11 @@ api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 print("Gemini API key loaded:", api_key)
 genai.configure(api_key=api_key)
+def validate_role_with_gemini(resume_text, role_options):
+    prompt = f"""
+You are an AI career assistant. Based on the resume text below, which of the following roles best matches the profile?
+Options: {', '.join(role_options)}
+"""
 def get_resume_feedback_gemini(resume_text, target_role):
     prompt = f"""
 You are a resume coach. Analyze the following resume for a '{target_role}' role.
@@ -91,28 +96,38 @@ if resume_text:
     tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 
     with tab1:
-        def predict_resume(resume_text):
+        def predict_resume(resume_text, confidence_threshold=0.15):
             cleaned = clean_text(resume_text)
             proba = model.predict_proba([cleaned])[0]
             top_idx = np.argsort(proba)[::-1][:3]
             top_labels = label_encoder.inverse_transform(top_idx)
             top_scores = proba[top_idx]
-            return list(zip(top_labels, top_scores))
+            return [(label, score) for label, score in zip(top_labels, top_scores) if score >= confidence_threshold]
 
         if st.button("🔍 Predict Job Role"):
             with st.spinner("Analyzing with ML model..."):
                 predictions = predict_resume(resume_text)
-                st.success("✅ Top Predictions:")
-                print("Extracted resume text:\n", resume_text)
-                for i, (label, score) in enumerate(predictions, 1):
-                    st.markdown(f"**{i}. {label}** – {round(score * 100, 2)}% confidence")
+                if predictions:
+            st.success("✅ Top Predictions")
+            for i, (label, score) in enumerate(predictions, 1):
+                st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
             st.session_state["top_role"] = predictions[0][0]
+            
+            role_list = [p[0] for p in predictions]
+            verified = validate_role_with_gemini(resume_text, role_list)
+            st.markdown(f"🔍 **Gemini-Validated Role**: `{verified}`")
+        else:
+            st.warning("🤔 No high-confidence predictions found.")
 
     with tab2:
         if st.button("🧠 Get Gemini Feedback"):
             with st.spinner("Contacting Gemini..."):
+                # Let user input a preferred job role
+                manual_role = st.text_input("🎯 Enter your target job role (optional)", "")
                 top_role = st.session_state.get("top_role", "Data Analyst")
-                feedback = get_resume_feedback_gemini(resume_text, top_role)
+                # Use user input if provided, else fallback to top_role
+                selected_role = manual_role if manual_role else top_role
+                feedback = get_resume_feedback_gemini(resume_text, selected_role)
                 st.markdown("### 💬 Gemini Suggestions")
                 st.info(feedback)
 
