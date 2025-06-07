@@ -17,7 +17,7 @@ lemmatizer = WordNetLemmatizer()
 def clean_text(text):
     text = re.sub(r'[^a-zA-Z]', ' ', text)
     text = text.lower().split()
-    return ' '.join([lemmatizer.lemmatize(word) for word in text if word not in stop_words])
+    return ' '.join([lemmatizer.lemmatize(word) for word in text if word not in stop_w])
 
 # 📄 Extract PDF text
 def extract_text_from_pdf(uploaded_file):
