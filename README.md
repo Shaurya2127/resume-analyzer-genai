@@ -13,14 +13,14 @@ A Streamlit app that predicts the best job role from a resume using **Machine Le
 ---
 
 ## 📂 Project Structure
-resume-analyzer-genai/
-├── resume_app_genai.py # Streamlit app
-├── resume_classifier_ml.pkl # ML model
-├── label_encoder.pickle # Encoded role labels
-├── requirements.txt # Python dependencies
-├── .streamlit/
-│ └── secrets.toml # API key (private)
-├── README.md # This file
+resume-analyzer-genai/ <br/>
+├── resume_app_genai.py # Streamlit app <br/>
+├── resume_classifier_ml.pkl # ML model <br/>
+├── label_encoder.pickle # Encoded role labels <br/>
+├── requirements.txt # Python dependencies <br/>
+├── .streamlit/ <br/>
+│ └── secrets.toml # API key (private) <br/>
+├── README.md # This file <br/>
 
 
 ---
