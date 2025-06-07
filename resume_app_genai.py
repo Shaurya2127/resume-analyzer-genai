@@ -88,7 +88,7 @@ with col2:
 
 # Prediction and GPT Tabs
 if resume_text:
-    tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 GPT Resume Feedback"])
+    tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 
     with tab1:
         def predict_resume(resume_text):
@@ -109,11 +109,11 @@ if resume_text:
             st.session_state["top_role"] = predictions[0][0]
 
     with tab2:
-        if st.button("🧠 Get GPT Feedback"):
-            with st.spinner("Contacting GPT..."):
+        if st.button("🧠 Get Gemini Feedback"):
+            with st.spinner("Contacting Gemini..."):
                 top_role = st.session_state.get("top_role", "Data Analyst")
                 feedback = get_resume_feedback_gemini(resume_text, top_role)
-                st.markdown("### 💬 GPT Suggestions")
+                st.markdown("### 💬 Gemini Suggestions")
                 st.info(feedback)
 
 st.markdown("---")
