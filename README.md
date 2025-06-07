@@ -56,5 +56,5 @@ Streamlit (frontend)
 PyMuPDF (for PDF text extraction)
 
 📧 shauryachauhan721@gmail.com
-🔗 LinkedIn - [   
-🔗 GitHub
+🔗 LinkedIn - [ https://www.linkedin.com/in/shaurya-chauhan-0089911bb/ ] 
+🔗 GitHub - [ https://github.com/Shaurya2127/resume-analyzer-genai ]
