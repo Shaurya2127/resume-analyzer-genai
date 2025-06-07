@@ -17,7 +17,7 @@ lemmatizer = WordNetLemmatizer()
 def clean_text(text):
     text = re.sub(r'[^a-zA-Z]', ' ', text)
     text = text.lower().split()
-    return ' '.join([lemmatizer.lemmatize(word) for word in text if word not in stop_w])
+    return ' '.join([lemmatizer.lemmatize(word) for word in text if word not in stop_words])
 
 # 📄 Extract PDF text
 def extract_text_from_pdf(uploaded_file):
@@ -62,7 +62,7 @@ st.sidebar.markdown("""
 **Powered by GenAI + ML**
 Upload your resume and receive:
 - 🔍 Role Predictions
-- 💡 GPT Feedback
+- 💡 AI Feedback
 """)
 st.sidebar.markdown("---")
 st.sidebar.markdown("Built by **Shaurya Chauhan**")
