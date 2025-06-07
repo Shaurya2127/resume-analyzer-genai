@@ -19,7 +19,7 @@ resume-analyzer-genai/ <br/>
 ├── label_encoder.pickle # Encoded role labels <br/>
 ├── requirements.txt # Python dependencies <br/>
 ├── .streamlit/ <br/>
-|└── secrets.toml # API key (private) <br/>
+ └── secrets.toml # API key (private) <br/>
 ├── README.md # This file <br/>
 
 
