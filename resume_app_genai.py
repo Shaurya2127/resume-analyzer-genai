@@ -108,10 +108,10 @@ if resume_text:
             with st.spinner("Analyzing with ML model..."):
                 predictions = predict_resume(resume_text)
                 if predictions:
-            st.success("✅ Top Predictions")
-            for i, (label, score) in enumerate(predictions, 1):
-                st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
-            st.session_state["top_role"] = predictions[0][0]
+                    st.success("✅ Top Predictions")
+                    for i, (label, score) in enumerate(predictions, 1):
+                        st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
+                    st.session_state["top_role"] = predictions[0][0]
             
             role_list = [p[0] for p in predictions]
             verified = validate_role_with_gemini(resume_text, role_list)
