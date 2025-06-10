@@ -90,7 +90,7 @@ with tab1:
 
     if uploaded_file:
         resume_text_ml = extract_text_from_pdf(uploaded_file)
-        st.text_area("📄 Extracted Resume Text", resume_text_ml, height=250)
+        st.text_area("📄 Extracted Resume Text", resume_text_ml, height=250, key="resume_text_ml_box")
 
         def predict_resume(text, confidence_threshold=0.15):
             cleaned = clean_text(text)
@@ -124,7 +124,7 @@ with tab2:
 
     if uploaded_file_gemini:
         resume_text_genai = extract_text_from_pdf(uploaded_file_gemini)
-        st.text_area("📄 Extracted Resume Text", resume_text_genai, height=250)
+        st.text_area("📄 Extracted Resume Text", resume_text_genai, height=250, key="resume_text_genai_box")
 
         target_role = st.text_input("🎯 Enter your target job role (e.g. Data Analyst, DevOps Engineer)")
 
