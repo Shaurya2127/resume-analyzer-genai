@@ -85,12 +85,12 @@ tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 
 # --------------------------- TAB 1 --------------------------------
 with tab1:
-    st.header("🤖 Predict Your Resume's Job Role (ML-Based)")
-
+    st.header("📊 Predict Your Resume's Role using ML")
     uploaded_file = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="ml_tab")
+
     if uploaded_file:
-        resume_text = extract_text_from_pdf(uploaded_file)
-        st.text_area("📄 Extracted Resume Text", resume_text, height=250)
+        resume_text_ml = extract_text_from_pdf(uploaded_file)
+        st.text_area("📄 Extracted Resume Text", resume_text_ml, height=250)
 
         def predict_resume(text, confidence_threshold=0.15):
             cleaned = clean_text(text)
@@ -101,36 +101,38 @@ with tab1:
             return [(label, score) for label, score in zip(top_labels, top_scores) if score >= confidence_threshold]
 
         if st.button("🔍 Predict Job Role"):
-            with st.spinner("Analyzing with ML model..."):
-                predictions = predict_resume(resume_text)
+            with st.spinner("Analyzing..."):
+                predictions = predict_resume(resume_text_ml)
                 if predictions:
-                    st.success("✅ Top Predictions:")
+                    st.success("✅ Top Role Predictions:")
                     for i, (label, score) in enumerate(predictions, 1):
                         st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
                     st.session_state["top_role"] = predictions[0][0]
+
                     try:
-                        validated_role = validate_role_with_gemini(resume_text, [p[0] for p in predictions])
-                        st.markdown(f"🔎 **Gemini-Validated Role**: `{validated_role}`")
+                        validated = validate_role_with_gemini(resume_text_ml, [p[0] for p in predictions])
+                        st.markdown(f"🔎 **Gemini-Validated Role**: `{validated}`")
                     except Exception as e:
-                        st.warning(f"Gemini validation failed: {e}")
+                        st.warning(f"Gemini validation error: {e}")
                 else:
-                    st.warning("❗ No high-confidence roles found.")
+                    st.warning("❗ No high-confidence roles predicted.")
 
-# --------------------------- TAB 2 --------------------------------
+# ------------------------ TAB 2 ------------------------
 with tab2:
-    st.header("📝 Resume Feedback using Gemini AI")
-
+    st.header("💡 Resume Feedback via Gemini AI")
     uploaded_file_gemini = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="genai_tab")
-    if uploaded_file_gemini:
-        resume_text = extract_text_from_pdf(uploaded_file_gemini)
-        st.text_area("📄 Extracted Resume Text", resume_text, height=250)
 
-        target_role = st.text_input("🎯 Enter your target job role (e.g., Data Analyst, DevOps Engineer)")
+    if uploaded_file_gemini:
+        resume_text_genai = extract_text_from_pdf(uploaded_file_gemini)
+        st.text_area("📄 Extracted Resume Text", resume_text_genai, height=250)
+
+        target_role = st.text_input("🎯 Enter your target job role (e.g. Data Analyst, DevOps Engineer)")
+
         if st.button("🧠 Get Gemini Feedback"):
-            if target_role and resume_text:
-                with st.spinner("Contacting Gemini..."):
-                    feedback = get_resume_feedback_gemini(resume_text, target_role)
-                    st.markdown("### 💬 Gemini Suggestions")
+            if resume_text_genai and target_role:
+                with st.spinner("Generating feedback..."):
+                    feedback = get_resume_feedback_gemini(resume_text_genai, target_role)
+                    st.subheader("💬 Suggestions")
                     st.info(feedback)
             else:
-                st.warning("❗ Please enter a job role and upload a resume.")
+                st.warning("Please provide both the resume and target job role.")
