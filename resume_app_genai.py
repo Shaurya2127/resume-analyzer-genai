@@ -39,7 +39,7 @@ Options: {', '.join(role_options)}
 Resume:
 {resume_text}
 """
-    model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
+    model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(prompt)
     return response.text.strip()
 def calculate_resume_score(resume_text, ml_confidence):
