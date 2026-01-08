@@ -168,7 +168,7 @@ with tab1:
 
         st.text_area(
            "📄 Extracted Resume Text",
-           resume_text_genai,
+           resume_text,
            height=250,
            key="extracted_resume_text"
         )
@@ -212,13 +212,13 @@ with tab2:
     )
 
     if uploaded_file_gemini:
-        resume_text_genai = extract_text_from_pdf(uploaded_file_gemini)
+        resume_text = extract_text_from_pdf(uploaded_file_gemini)
 
-        if not resume_text_genai:
+        if not resume_text:
             st.error("Unable to read PDF.")
             st.stop()
 
-        st.text_area("📄 Extracted Resume Text", resume_text_genai, height=250)
+        st.text_area("📄 Extracted Resume Text", resume_text, height=250)
 
         target_role = st.text_input(
             "🎯 Target Job Role",
@@ -230,7 +230,7 @@ with tab2:
                 st.warning("Please enter a target job role.")
             else:
                 feedback = get_resume_feedback_gemini(
-                    resume_text_genai, target_role
+                    resume_text, target_role
                 )
                 st.info(feedback)
 
@@ -239,7 +239,7 @@ with tab2:
                 st.warning("Please enter a target job role.")
             else:
                 improved_resume = generate_improved_resume(
-                    resume_text_genai, target_role
+                    resume_text, target_role
                 )
 
                 st.text_area(
