@@ -42,6 +42,36 @@ Resume:
     model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
     response = model.generate_content(prompt)
     return response.text.strip()
+def calculate_resume_score(resume_text, ml_confidence):
+    word_count = len(resume_text.split())
+
+    # Length score (ideal 400–900 words)
+    if word_count < 300:
+        length_score = 0.4
+    elif word_count <= 900:
+        length_score = 1.0
+    else:
+        length_score = 0.7
+
+    # Final weighted score
+    score = (
+        0.6 * ml_confidence +   # role fit
+        0.4 * length_score      # structure quality
+    ) * 100
+
+    return round(score, 1)
+def generate_improved_resume(resume_text, target_role):
+    prompt = f"""
+Rewrite the resume below for a '{target_role}' role.
+Improve clarity, bullet points, and ATS keywords.
+Keep it professional and concise.
+
+Resume:
+{resume_text}
+"""
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(prompt)
+    return response.text
 
 def get_resume_feedback_gemini(resume_text, target_role):
     prompt = f"""
@@ -99,6 +129,13 @@ with tab1:
             top_labels = label_encoder.inverse_transform(top_idx)
             top_scores = proba[top_idx]
             return [(label, score) for label, score in zip(top_labels, top_scores) if score >= confidence_threshold]
+        top_role, top_confidence = predictions[0]
+        resume_score = calculate_resume_score(resume_text, top_confidence)
+
+        st.metric(
+         label="📊 Resume Strength Score",
+        value=f"{resume_score} / 100"
+        )
 
         if st.button("🔍 Predict Job Role"):
             with st.spinner("Analyzing..."):
@@ -136,3 +173,22 @@ with tab2:
                     st.info(feedback)
             else:
                 st.warning("Please provide both the resume and target job role.")
+     improved_resume = ""
+
+    if st.button("✨ Generate Improved Resume"):
+       with st.spinner("Improving resume with AI..."):
+          improved_resume = generate_improved_resume(resume_text, target_role)
+
+    if improved_resume:
+      st.text_area(
+        "📄 Improved Resume (AI Optimized)",
+        improved_resume,
+        height=350
+    )
+
+      st.download_button(
+        label="📥 Download Improved Resume",
+        data=improved_resume,
+        file_name="Improved_Resume.txt",
+        mime="text/plain"
+     )
