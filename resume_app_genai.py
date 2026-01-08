@@ -157,7 +157,7 @@ tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 # 📊 TAB 1 — ML
 # =========================
 with tab1:
-    uploaded_file = st.file_uploader("📤 Upload Resume (PDF)", type="pdf")
+    uploaded_file = st.file_uploader("📤 Upload Resume (PDF)", type="pdf",key="resume_uploader")
 
     if uploaded_file:
         resume_text_ml = extract_text_from_pdf(uploaded_file)
@@ -166,7 +166,13 @@ with tab1:
             st.error("Unable to read PDF. Please upload a valid resume.")
             st.stop()
 
-        st.text_area("📄 Extracted Resume Text", resume_text_ml, height=250)
+        st.text_area(
+           "📄 Extracted Resume Text",
+           resume_text_genai,
+           height=250,
+           key="extracted_resume_text"
+        )
+
 
         def predict_resume(text):
             cleaned = clean_text(text)
@@ -177,7 +183,7 @@ with tab1:
                 for i in top_idx if proba[i] >= 0.15
             ]
 
-        if st.button("🔍 Predict Job Role"):
+        if st.button("🔍 Predict Job Role", key="predict_btn"):
             predictions = predict_resume(resume_text_ml)
 
             if predictions:
@@ -219,7 +225,7 @@ with tab2:
             value=st.session_state.get("top_role", "")
         )
 
-        if st.button("🧠 Get Gemini Feedback"):
+        if st.button("🧠 Get Gemini Feedback", key="feedback_btn"):
             if not target_role.strip():
                 st.warning("Please enter a target job role.")
             else:
@@ -228,7 +234,7 @@ with tab2:
                 )
                 st.info(feedback)
 
-        if st.button("✨ Generate Improved Resume"):
+        if st.button("✨ Generate Improved Resume", key="improve_btn"):
             if not target_role.strip():
                 st.warning("Please enter a target job role.")
             else:
