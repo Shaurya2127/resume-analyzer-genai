@@ -33,13 +33,12 @@ def clean_text(text):
     )
 
 # =========================
-# 📄 PDF EXTRACTION (SAFE)
+# 📄 PDF EXTRACTION
 # =========================
 def extract_text_from_pdf(uploaded_file):
     try:
         doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-        text = " ".join(page.get_text() for page in doc)
-        return text.strip()
+        return " ".join(page.get_text() for page in doc).strip()
     except Exception:
         return ""
 
@@ -157,7 +156,11 @@ tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 # 📊 TAB 1 — ML
 # =========================
 with tab1:
-    uploaded_file = st.file_uploader("📤 Upload Resume (PDF)", type="pdf",key="resume_uploader")
+    uploaded_file = st.file_uploader(
+        "📤 Upload Resume (PDF)",
+        type="pdf",
+        key="resume_uploader_ml"
+    )
 
     if uploaded_file:
         resume_text_ml = extract_text_from_pdf(uploaded_file)
@@ -167,12 +170,11 @@ with tab1:
             st.stop()
 
         st.text_area(
-           "📄 Extracted Resume Text",
-           resume_text,
-           height=250,
-           key="extracted_resume_text"
+            "📄 Extracted Resume Text",
+            resume_text_ml,
+            height=250,
+            key="extracted_resume_text_ml"
         )
-
 
         def predict_resume(text):
             cleaned = clean_text(text)
@@ -193,7 +195,9 @@ with tab1:
                 top_role, top_confidence = predictions[0]
                 st.session_state["top_role"] = top_role
 
-                resume_score = calculate_resume_score(resume_text_ml, top_confidence)
+                resume_score = calculate_resume_score(
+                    resume_text_ml, top_confidence
+                )
                 st.metric("📊 Resume Strength Score", f"{resume_score} / 100")
 
                 validated = validate_role_with_gemini(
@@ -208,7 +212,9 @@ with tab1:
 # =========================
 with tab2:
     uploaded_file_gemini = st.file_uploader(
-        "📤 Upload Resume (PDF)", type="pdf", key="genai"
+        "📤 Upload Resume (PDF)",
+        type="pdf",
+        key="resume_uploader_genai"
     )
 
     if uploaded_file_gemini:
@@ -218,11 +224,17 @@ with tab2:
             st.error("Unable to read PDF.")
             st.stop()
 
-        st.text_area("📄 Extracted Resume Text", resume_text, height=250)
+        st.text_area(
+            "📄 Extracted Resume Text",
+            resume_text,
+            height=250,
+            key="extracted_resume_text_genai"
+        )
 
         target_role = st.text_input(
             "🎯 Target Job Role",
-            value=st.session_state.get("top_role", "")
+            value=st.session_state.get("top_role", ""),
+            key="target_role_input"
         )
 
         if st.button("🧠 Get Gemini Feedback", key="feedback_btn"):
@@ -245,13 +257,14 @@ with tab2:
                 st.text_area(
                     "📄 Improved Resume (AI Optimized)",
                     improved_resume,
-                    height=350
+                    height=350,
+                    key="improved_resume_text"
                 )
 
                 st.download_button(
                     "📥 Download Improved Resume",
                     improved_resume,
                     file_name="Improved_Resume.txt",
-                    mime="text/plain"
+                    mime="text/plain",
+                    key="download_btn"
                 )
-
