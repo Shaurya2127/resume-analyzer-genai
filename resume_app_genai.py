@@ -58,7 +58,7 @@ Options: {', '.join(role_options)}
 Resume:
 {resume_text}
 """
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         return model.generate_content(prompt).text.strip()
     except Exception:
         return "Gemini validation unavailable"
@@ -77,7 +77,7 @@ Suggest improvements in:
 Resume:
 {resume_text}
 """
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         return model.generate_content(prompt).text
     except Exception:
         return "⚠️ AI feedback temporarily unavailable."
@@ -92,7 +92,7 @@ Keep it professional.
 Resume:
 {resume_text}
 """
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         return model.generate_content(prompt).text
     except Exception:
         return "⚠️ Resume generation unavailable."
@@ -125,6 +125,7 @@ with open("label_encoder.pickle", "rb") as f:
 if not hasattr(model, "predict_proba"):
     st.error("ML model does not support probability prediction.")
     st.stop()
+st.write("✅ Gemini API reachable")
 
 # =========================
 # 🖥 STREAMLIT CONFIG
