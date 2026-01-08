@@ -3,49 +3,107 @@ import pickle
 import re
 import nltk
 import fitz  # PyMuPDF
-import openai
+import streamlit as st
+import google.generativeai as genai
+
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-import streamlit as st
-# 📦 Setup
-nltk.download('stopwords')
-nltk.download('wordnet')
-stop_words = set(stopwords.words('english'))
+
+# =========================
+# 🔐 SAFE NLTK SETUP
+# =========================
+@st.cache_resource
+def load_nltk():
+    nltk.download("stopwords")
+    nltk.download("wordnet")
+
+load_nltk()
+
+stop_words = set(stopwords.words("english"))
 lemmatizer = WordNetLemmatizer()
 
-# 🧹 Clean text
+# =========================
+# 🧹 TEXT CLEANING
+# =========================
 def clean_text(text):
-    text = re.sub(r'[^a-zA-Z]', ' ', text)
+    text = re.sub(r"[^a-zA-Z]", " ", text)
     text = text.lower().split()
-    return ' '.join([lemmatizer.lemmatize(word) for word in text if word not in stop_words])
+    return " ".join(
+        lemmatizer.lemmatize(word) for word in text if word not in stop_words
+    )
 
-# 📄 Extract PDF text
+# =========================
+# 📄 PDF EXTRACTION (SAFE)
+# =========================
 def extract_text_from_pdf(uploaded_file):
-    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-    return " ".join([page.get_text() for page in doc])
-    
-import google.generativeai as genai
-import os
-# 🔑 Load Gemini API key
-api_key = st.secrets["GEMINI_API_KEY"]
-genai.configure(api_key=api_key)
+    try:
+        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        text = " ".join(page.get_text() for page in doc)
+        return text.strip()
+    except Exception:
+        return ""
 
-# ✨ Gemini Functions
+# =========================
+# 🤖 GEMINI CONFIG
+# =========================
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
 def validate_role_with_gemini(resume_text, role_options):
-    prompt = f"""
-You are an AI career assistant. Based on the resume text below, which of the following roles best matches the profile?
+    try:
+        prompt = f"""
+You are an AI career assistant.
+Which role best matches this resume?
+
 Options: {', '.join(role_options)}
 
 Resume:
 {resume_text}
 """
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(prompt)
-    return response.text.strip()
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        return model.generate_content(prompt).text.strip()
+    except Exception:
+        return "Gemini validation unavailable"
+
+def get_resume_feedback_gemini(resume_text, target_role):
+    try:
+        prompt = f"""
+You are a resume coach.
+Analyze the resume for a '{target_role}' role.
+Suggest improvements in:
+- Structure
+- Skills gaps
+- Bullet points
+- ATS optimization
+
+Resume:
+{resume_text}
+"""
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        return model.generate_content(prompt).text
+    except Exception:
+        return "⚠️ AI feedback temporarily unavailable."
+
+def generate_improved_resume(resume_text, target_role):
+    try:
+        prompt = f"""
+Rewrite the resume for a '{target_role}' role.
+Improve clarity, bullet points, and ATS keywords.
+Keep it professional.
+
+Resume:
+{resume_text}
+"""
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        return model.generate_content(prompt).text
+    except Exception:
+        return "⚠️ Resume generation unavailable."
+
+# =========================
+# 📊 RESUME SCORE
+# =========================
 def calculate_resume_score(resume_text, ml_confidence):
     word_count = len(resume_text.split())
 
-    # Length score (ideal 400–900 words)
     if word_count < 300:
         length_score = 0.4
     elif word_count <= 900:
@@ -53,142 +111,141 @@ def calculate_resume_score(resume_text, ml_confidence):
     else:
         length_score = 0.7
 
-    # Final weighted score
-    score = (
-        0.6 * ml_confidence +   # role fit
-        0.4 * length_score      # structure quality
-    ) * 100
+    score = (0.6 * ml_confidence + 0.4 * length_score) * 100
+    return min(round(score, 1), 100.0)
 
-    return round(score, 1)
-def generate_improved_resume(resume_text, target_role):
-    prompt = f"""
-Rewrite the resume below for a '{target_role}' role.
-Improve clarity, bullet points, and ATS keywords.
-Keep it professional and concise.
-
-Resume:
-{resume_text}
-"""
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(prompt)
-    return response.text
-
-def get_resume_feedback_gemini(resume_text, target_role):
-    prompt = f"""
-You are a resume coach. Analyze the following resume for a '{target_role}' role.
-Suggest improvements in bullet points, including structure, tone, ATS Optimization Tips and missing skills.
-
-Resume:
-{resume_text}
-"""
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(prompt)
-    return response.text
-
-# Load model and label encoder
-MODEL_PATH = "resume_classifier_ml.pkl"
-ENCODER_PATH = "label_encoder.pickle"
-
-with open(MODEL_PATH, "rb") as f:
+# =========================
+# 🧠 LOAD ML MODELS
+# =========================
+with open("resume_classifier_ml.pkl", "rb") as f:
     model = pickle.load(f)
-with open(ENCODER_PATH, "rb") as f:
+
+with open("label_encoder.pickle", "rb") as f:
     label_encoder = pickle.load(f)
 
-# 🚀 Streamlit Config
-st.set_page_config(page_title="Resume Optimizer", page_icon="🧠", layout="wide")
+if not hasattr(model, "predict_proba"):
+    st.error("ML model does not support probability prediction.")
+    st.stop()
+
+# =========================
+# 🖥 STREAMLIT CONFIG
+# =========================
+st.set_page_config(
+    page_title="Resume Analyzer & Optimizer",
+    page_icon="🧠",
+    layout="wide"
+)
+
 st.sidebar.title("📄 Resume Optimizer")
 st.sidebar.markdown("""
-Upload your resume and receive:
-- 🔍 ML Role Predictions
-- 💡 Gemini AI Suggestions
----
+Upload your resume to:
+- 🔍 Predict job roles
+- 📊 Get a resume score
+- 💡 Receive AI feedback
+- 📥 Download improved resume
+
 Built by **Shaurya Chauhan**
 [GitHub](https://github.com/Shaurya2127) | [LinkedIn](https://www.linkedin.com/in/shaurya-chauhan-0089911bb/)
 """)
 
-# Header
 st.title("🧠 Resume Analyzer & Optimizer")
-st.markdown("<h5 style='color: gray;'>Get job-fit predictions and GPT-based resume suggestions</h5>", unsafe_allow_html=True)
+st.caption("Production-ready ML + GenAI resume evaluation")
 
-# Tabs
 tab1, tab2 = st.tabs(["📊 ML Role Prediction", "💡 Gemini Resume Feedback"])
 
-# --------------------------- TAB 1 --------------------------------
+# =========================
+# 📊 TAB 1 — ML
+# =========================
 with tab1:
-    st.header("📊 Predict Your Resume's Role using ML")
-    uploaded_file = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="ml_tab")
+    uploaded_file = st.file_uploader("📤 Upload Resume (PDF)", type="pdf")
 
     if uploaded_file:
         resume_text_ml = extract_text_from_pdf(uploaded_file)
-        st.text_area("📄 Extracted Resume Text", resume_text_ml, height=250, key="resume_text_ml_box")
 
-        def predict_resume(text, confidence_threshold=0.15):
+        if not resume_text_ml:
+            st.error("Unable to read PDF. Please upload a valid resume.")
+            st.stop()
+
+        st.text_area("📄 Extracted Resume Text", resume_text_ml, height=250)
+
+        def predict_resume(text):
             cleaned = clean_text(text)
             proba = model.predict_proba([cleaned])[0]
             top_idx = np.argsort(proba)[::-1][:3]
-            top_labels = label_encoder.inverse_transform(top_idx)
-            top_scores = proba[top_idx]
-            return [(label, score) for label, score in zip(top_labels, top_scores) if score >= confidence_threshold]
-        top_role, top_confidence = predictions[0]
-        resume_score = calculate_resume_score(resume_text, top_confidence)
-
-        st.metric(
-         label="📊 Resume Strength Score",
-        value=f"{resume_score} / 100"
-        )
+            return [
+                (label_encoder.inverse_transform([i])[0], proba[i])
+                for i in top_idx if proba[i] >= 0.15
+            ]
 
         if st.button("🔍 Predict Job Role"):
-            with st.spinner("Analyzing..."):
-                predictions = predict_resume(resume_text_ml)
-                if predictions:
-                    st.success("✅ Top Role Predictions:")
-                    for i, (label, score) in enumerate(predictions, 1):
-                        st.markdown(f"**{i}. {label}** – {score:.2%} confidence")
-                    st.session_state["top_role"] = predictions[0][0]
+            predictions = predict_resume(resume_text_ml)
 
-                    try:
-                        validated = validate_role_with_gemini(resume_text_ml, [p[0] for p in predictions])
-                        st.markdown(f"🔎 **Gemini-Validated Role**: `{validated}`")
-                    except Exception as e:
-                        st.warning(f"Gemini validation error: {e}")
-                else:
-                    st.warning("❗ No high-confidence roles predicted.")
+            if predictions:
+                for i, (role, score) in enumerate(predictions, 1):
+                    st.markdown(f"**{i}. {role}** — {score:.2%}")
 
-# ------------------------ TAB 2 ------------------------
+                top_role, top_confidence = predictions[0]
+                st.session_state["top_role"] = top_role
+
+                resume_score = calculate_resume_score(resume_text_ml, top_confidence)
+                st.metric("📊 Resume Strength Score", f"{resume_score} / 100")
+
+                validated = validate_role_with_gemini(
+                    resume_text_ml, [r for r, _ in predictions]
+                )
+                st.markdown(f"🔎 **Gemini-Validated Role:** `{validated}`")
+            else:
+                st.warning("No high-confidence roles detected.")
+
+# =========================
+# 💡 TAB 2 — GEMINI
+# =========================
 with tab2:
-    st.header("💡 Resume Feedback via Gemini AI")
-    uploaded_file_gemini = st.file_uploader("📤 Upload your resume (PDF)", type="pdf", key="genai_tab")
+    uploaded_file_gemini = st.file_uploader(
+        "📤 Upload Resume (PDF)", type="pdf", key="genai"
+    )
 
     if uploaded_file_gemini:
         resume_text_genai = extract_text_from_pdf(uploaded_file_gemini)
-        st.text_area("📄 Extracted Resume Text", resume_text_genai, height=250, key="resume_text_genai_box")
 
-        target_role = st.text_input("🎯 Enter your target job role (e.g. Data Analyst, DevOps Engineer)")
+        if not resume_text_genai:
+            st.error("Unable to read PDF.")
+            st.stop()
+
+        st.text_area("📄 Extracted Resume Text", resume_text_genai, height=250)
+
+        target_role = st.text_input(
+            "🎯 Target Job Role",
+            value=st.session_state.get("top_role", "")
+        )
 
         if st.button("🧠 Get Gemini Feedback"):
-            if resume_text_genai and target_role:
-                with st.spinner("Generating feedback..."):
-                    feedback = get_resume_feedback_gemini(resume_text_genai, target_role)
-                    st.subheader("💬 Suggestions")
-                    st.info(feedback)
+            if not target_role.strip():
+                st.warning("Please enter a target job role.")
             else:
-                st.warning("Please provide both the resume and target job role.")
-     improved_resume = ""
+                feedback = get_resume_feedback_gemini(
+                    resume_text_genai, target_role
+                )
+                st.info(feedback)
 
-    if st.button("✨ Generate Improved Resume"):
-       with st.spinner("Improving resume with AI..."):
-          improved_resume = generate_improved_resume(resume_text, target_role)
+        if st.button("✨ Generate Improved Resume"):
+            if not target_role.strip():
+                st.warning("Please enter a target job role.")
+            else:
+                improved_resume = generate_improved_resume(
+                    resume_text_genai, target_role
+                )
 
-    if improved_resume:
-      st.text_area(
-        "📄 Improved Resume (AI Optimized)",
-        improved_resume,
-        height=350
-    )
+                st.text_area(
+                    "📄 Improved Resume (AI Optimized)",
+                    improved_resume,
+                    height=350
+                )
 
-      st.download_button(
-        label="📥 Download Improved Resume",
-        data=improved_resume,
-        file_name="Improved_Resume.txt",
-        mime="text/plain"
-     )
+                st.download_button(
+                    "📥 Download Improved Resume",
+                    improved_resume,
+                    file_name="Improved_Resume.txt",
+                    mime="text/plain"
+                )
+
