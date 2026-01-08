@@ -46,12 +46,12 @@ Resume:
 def get_resume_feedback_gemini(resume_text, target_role):
     prompt = f"""
 You are a resume coach. Analyze the following resume for a '{target_role}' role.
-Suggest improvements in bullet points, including structure, tone, and missing skills.
+Suggest improvements in bullet points, including structure, tone, ATS Optimization Tips and missing skills.
 
 Resume:
 {resume_text}
 """
-    model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
+    model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(prompt)
     return response.text
 
