@@ -51,7 +51,7 @@ def extract_text_from_pdf(uploaded_file):
         return ""
 
 # =====================================================
-# LOAD ML MODELS
+# LOAD ML MODEL (REFERENCE ONLY)
 # =====================================================
 with open("resume_classifier_ml.pkl", "rb") as f:
     ml_model = pickle.load(f)
@@ -60,7 +60,63 @@ with open("label_encoder.pickle", "rb") as f:
     label_encoder = pickle.load(f)
 
 # =====================================================
-# GEMINI – SAFE + RATE LIMITED
+# ROLE → SKILL MAP (SCORING BASIS)
+# =====================================================
+ROLE_SKILLS = {
+    "data scientist": [
+        "python", "sql", "machine learning", "statistics",
+        "pandas", "numpy", "scikit", "visualization"
+    ],
+    "data analyst": [
+        "sql", "excel", "power bi", "tableau",
+        "dashboards", "analysis", "visualization"
+    ],
+    "ml engineer": [
+        "python", "machine learning", "deep learning",
+        "tensorflow", "pytorch", "deployment", "mlops"
+    ],
+    "software engineer": [
+        "python", "java", "c++", "data structures",
+        "algorithms", "system design", "api"
+    ]
+}
+
+# =====================================================
+# RESUME STRENGTH SCORE (TARGET ROLE BASED)
+# =====================================================
+def calculate_skill_match(resume_text, target_role):
+    skills = ROLE_SKILLS.get(target_role.lower(), [])
+    if not skills:
+        return 0.5  # neutral if role not predefined
+
+    resume_text = resume_text.lower()
+    matched = sum(1 for skill in skills if skill in resume_text)
+    return matched / len(skills)
+
+
+def calculate_structure_score(resume_text):
+    wc = len(resume_text.split())
+    if wc < 300:
+        return 0.4
+    elif wc <= 900:
+        return 1.0
+    else:
+        return 0.7
+
+
+def calculate_resume_strength(resume_text, target_role):
+    skill_score = calculate_skill_match(resume_text, target_role)
+    structure_score = calculate_structure_score(resume_text)
+
+    final_score = (
+        0.7 * skill_score +
+        0.3 * structure_score
+    ) * 100
+
+    return round(final_score, 1)
+
+# =====================================================
+# GEMINI (RATE-LIMIT SAFE)
 # =====================================================
 @st.cache_data(show_spinner=False)
 def cached_gemini(prompt):
@@ -72,7 +128,7 @@ def cached_gemini(prompt):
     ]
 
     if not models:
-        return "⚠️ Gemini models are not available for this API key."
+        return "⚠️ Gemini models unavailable for this API key."
 
     model = genai.GenerativeModel(models[0])
     return model.generate_content(prompt).text
@@ -84,23 +140,21 @@ def gemini_call(prompt):
     except Exception as e:
         if "429" in str(e) or "quota" in str(e).lower():
             return (
-                "⚠️ Gemini rate limit reached.\n"
+                "⚠️ Gemini rate limit reached. "
                 "Please wait a few seconds or upgrade your plan."
             )
         return f"⚠️ Gemini error: {e}"
 
 # =====================================================
-# GEMINI TASKS (TARGET-ROLE FIRST)
+# GEMINI TASKS (TARGET ROLE DRIVEN)
 # =====================================================
 def get_alignment_feedback(resume_text, target_role):
     prompt = f"""
-You are a senior hiring manager.
-
-Analyze how well this resume matches the target role: {target_role}.
-Give:
-1. Alignment score (High / Medium / Low)
+Analyze how well this resume aligns with the target role: {target_role}.
+Provide:
+1. Alignment level (High / Medium / Low)
 2. Missing skills
-3. Key improvements needed
+3. Key improvements
 
 Resume:
 {resume_text}
@@ -110,14 +164,9 @@ Resume:
 
 def get_resume_feedback(resume_text, target_role):
     prompt = f"""
-You are a professional resume coach.
-
-Improve this resume for a {target_role} role.
-Focus on:
-- Structure
-- Skill gaps
-- Bullet points
-- ATS optimization
+You are a resume coach.
+Improve this resume specifically for a {target_role} role.
+Focus on skills, bullet points, and ATS optimization.
 
 Resume:
 {resume_text}
@@ -128,8 +177,7 @@ Resume:
 def generate_improved_resume(resume_text, target_role):
     prompt = f"""
 Rewrite this resume for a {target_role} role.
-Use strong action verbs, quantified impact,
-and ATS-friendly keywords.
+Use strong action verbs and ATS-friendly keywords.
 
 Resume:
 {resume_text}
@@ -137,21 +185,10 @@ Resume:
     return gemini_call(prompt)
 
 # =====================================================
-# RESUME SCORE (TARGET ROLE BASED)
-# =====================================================
-def calculate_resume_score(resume_text, confidence):
-    wc = len(resume_text.split())
-    length_score = 1.0 if 300 <= wc <= 900 else 0.6
-    return round(min((0.6 * confidence + 0.4 * length_score) * 100, 100), 1)
-
-# =====================================================
 # UI
 # =====================================================
 st.sidebar.title("📄 Resume Optimizer")
-st.sidebar.markdown("""
-Target-role driven resume analysis  
-Built by **Shaurya Chauhan**
-""")
+st.sidebar.markdown("Target-role driven resume analysis")
 
 st.title("🧠 Resume Analyzer & Optimizer")
 
@@ -173,20 +210,17 @@ if uploaded_file:
         height=260
     )
 
-    # ============================
-    # USER TARGET ROLE
-    # ============================
     target_role = st.text_input(
         "🎯 Which job role are you aiming for?",
-        placeholder="e.g. Data Scientist, Data Analyst, ML Engineer"
+        placeholder="e.g. Data Scientist, Data Analyst"
     )
 
     if not target_role.strip():
-        st.info("Please enter your target job role to continue.")
+        st.info("Please enter your target job role.")
         st.stop()
 
     # ============================
-    # ML ROLE COMPARISON
+    # ML ROLE REFERENCE
     # ============================
     cleaned = clean_text(resume_text)
     proba = ml_model.predict_proba([cleaned])[0]
@@ -197,29 +231,30 @@ if uploaded_file:
         for i in top_idx
     ]
 
-    st.subheader("📊 ML-Predicted Roles (Reference)")
+    st.subheader("📊 ML-Predicted Roles (Reference Only)")
     for i, (role, score) in enumerate(predictions, 1):
         st.markdown(f"**{i}. {role}** — {score:.2%}")
 
-    top_ml_role, top_conf = predictions[0]
-
-    resume_score = calculate_resume_score(resume_text, top_conf)
-    st.metric("📊 Resume Strength Score", f"{resume_score} / 100")
+    # ============================
+    # RESUME STRENGTH SCORE
+    # ============================
+    strength_score = calculate_resume_strength(resume_text, target_role)
+    st.metric("📊 Resume Strength Score (Target Role)", f"{strength_score} / 100")
 
     # ============================
     # GEMINI ANALYSIS
     # ============================
-    st.subheader("🤖 AI Analysis for Your Target Role")
+    st.subheader("🤖 AI Analysis for Target Role")
 
     if st.button("🔎 Analyze Alignment"):
         alignment = get_alignment_feedback(resume_text, target_role)
         st.info(alignment)
 
-    if st.button("🧠 Get Resume Improvement Suggestions"):
+    if st.button("🧠 Get Improvement Suggestions"):
         feedback = get_resume_feedback(resume_text, target_role)
         st.info(feedback)
 
-    if st.button("✨ Generate Target-Role Optimized Resume"):
+    if st.button("✨ Generate Optimized Resume"):
         improved = generate_improved_resume(resume_text, target_role)
 
         st.text_area(
