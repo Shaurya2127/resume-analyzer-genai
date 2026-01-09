@@ -62,7 +62,7 @@ with open("label_encoder.pickle", "rb") as f:
 # =========================
 # GEMINI CONFIG (MOST STABLE)
 # =========================
-GEMINI_MODEL_NAME = "gemini-1.5-flash"
+GEMINI_MODEL_NAME = "gemini-pro"
 
 def gemini_call(prompt):
     try:
