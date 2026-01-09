@@ -1,9 +1,8 @@
 import numpy as np
 import pickle
 import re
-import time
 import nltk
-import fitz  # PyMuPDF
+import fitz
 import streamlit as st
 import google.generativeai as genai
 
@@ -20,7 +19,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NLTK SETUP (CLOUD SAFE)
+# NLTK SETUP
 # =====================================================
 @st.cache_resource
 def setup_nltk():
@@ -42,7 +41,7 @@ def clean_text(text):
     )
 
 # =====================================================
-# PDF TEXT EXTRACTION
+# PDF EXTRACTION
 # =====================================================
 def extract_text_from_pdf(uploaded_file):
     try:
@@ -52,7 +51,7 @@ def extract_text_from_pdf(uploaded_file):
         return ""
 
 # =====================================================
-# LOAD ML MODEL
+# LOAD ML MODELS
 # =====================================================
 with open("resume_classifier_ml.pkl", "rb") as f:
     ml_model = pickle.load(f)
@@ -61,10 +60,10 @@ with open("label_encoder.pickle", "rb") as f:
     label_encoder = pickle.load(f)
 
 # =====================================================
-# GEMINI – RATE-LIMIT SAFE & FAIL-PROOF
+# GEMINI – SAFE + RATE LIMITED
 # =====================================================
 @st.cache_data(show_spinner=False)
-def cached_gemini_response(prompt):
+def cached_gemini(prompt):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
     models = [
@@ -73,38 +72,35 @@ def cached_gemini_response(prompt):
     ]
 
     if not models:
-        return "⚠️ Gemini is enabled but no text-generation models are available for this API key."
+        return "⚠️ Gemini models are not available for this API key."
 
     model = genai.GenerativeModel(models[0])
-    response = model.generate_content(prompt)
-    return response.text
+    return model.generate_content(prompt).text
 
 
 def gemini_call(prompt):
     try:
-        return cached_gemini_response(prompt)
-
+        return cached_gemini(prompt)
     except Exception as e:
-        msg = str(e).lower()
-
-        if "429" in msg or "quota" in msg:
+        if "429" in str(e) or "quota" in str(e).lower():
             return (
-                "⚠️ Gemini free-tier rate limit reached.\n\n"
-                "Please wait ~15 seconds and try again, "
-                "or upgrade your Gemini plan."
+                "⚠️ Gemini rate limit reached.\n"
+                "Please wait a few seconds or upgrade your plan."
             )
-
         return f"⚠️ Gemini error: {e}"
 
 # =====================================================
-# GEMINI FUNCTIONS
+# GEMINI TASKS (TARGET-ROLE FIRST)
 # =====================================================
-def validate_role_with_gemini(resume_text, roles):
+def get_alignment_feedback(resume_text, target_role):
     prompt = f"""
-You are an AI career assistant.
-Choose the best matching role from the list below.
+You are a senior hiring manager.
 
-Roles: {', '.join(roles)}
+Analyze how well this resume matches the target role: {target_role}.
+Give:
+1. Alignment score (High / Medium / Low)
+2. Missing skills
+3. Key improvements needed
 
 Resume:
 {resume_text}
@@ -112,13 +108,15 @@ Resume:
     return gemini_call(prompt)
 
 
-def get_resume_feedback(resume_text, role):
+def get_resume_feedback(resume_text, target_role):
     prompt = f"""
 You are a professional resume coach.
-Give actionable feedback for a {role} role under:
+
+Improve this resume for a {target_role} role.
+Focus on:
 - Structure
-- Skills gaps
-- Bullet point improvements
+- Skill gaps
+- Bullet points
 - ATS optimization
 
 Resume:
@@ -127,11 +125,11 @@ Resume:
     return gemini_call(prompt)
 
 
-def generate_improved_resume(resume_text, role):
+def generate_improved_resume(resume_text, target_role):
     prompt = f"""
-Rewrite this resume for a {role} role.
-Improve clarity, bullet points, and ATS keywords.
-Keep it professional.
+Rewrite this resume for a {target_role} role.
+Use strong action verbs, quantified impact,
+and ATS-friendly keywords.
 
 Resume:
 {resume_text}
@@ -139,7 +137,7 @@ Resume:
     return gemini_call(prompt)
 
 # =====================================================
-# RESUME SCORE
+# RESUME SCORE (TARGET ROLE BASED)
 # =====================================================
 def calculate_resume_score(resume_text, confidence):
     wc = len(resume_text.split())
@@ -151,7 +149,7 @@ def calculate_resume_score(resume_text, confidence):
 # =====================================================
 st.sidebar.title("📄 Resume Optimizer")
 st.sidebar.markdown("""
-ML + GenAI powered resume analysis  
+Target-role driven resume analysis  
 Built by **Shaurya Chauhan**
 """)
 
@@ -159,26 +157,36 @@ st.title("🧠 Resume Analyzer & Optimizer")
 
 uploaded_file = st.file_uploader(
     "📤 Upload Resume (PDF)",
-    type="pdf",
-    key="resume_uploader"
+    type="pdf"
 )
 
 if uploaded_file:
     resume_text = extract_text_from_pdf(uploaded_file)
 
     if not resume_text:
-        st.error("Unable to read PDF.")
+        st.error("Unable to read resume.")
         st.stop()
 
     st.text_area(
         "📄 Extracted Resume Text",
         resume_text,
-        height=260,
-        key="resume_text_area"
+        height=260
     )
 
     # ============================
-    # ML PREDICTION
+    # USER TARGET ROLE
+    # ============================
+    target_role = st.text_input(
+        "🎯 Which job role are you aiming for?",
+        placeholder="e.g. Data Scientist, Data Analyst, ML Engineer"
+    )
+
+    if not target_role.strip():
+        st.info("Please enter your target job role to continue.")
+        st.stop()
+
+    # ============================
+    # ML ROLE COMPARISON
     # ============================
     cleaned = clean_text(resume_text)
     proba = ml_model.predict_proba([cleaned])[0]
@@ -189,44 +197,40 @@ if uploaded_file:
         for i in top_idx
     ]
 
-    st.subheader("📊 ML Role Predictions")
+    st.subheader("📊 ML-Predicted Roles (Reference)")
     for i, (role, score) in enumerate(predictions, 1):
         st.markdown(f"**{i}. {role}** — {score:.2%}")
 
-    top_role, top_conf = predictions[0]
-    resume_score = calculate_resume_score(resume_text, top_conf)
+    top_ml_role, top_conf = predictions[0]
 
+    resume_score = calculate_resume_score(resume_text, top_conf)
     st.metric("📊 Resume Strength Score", f"{resume_score} / 100")
 
     # ============================
-    # GEMINI SECTION
+    # GEMINI ANALYSIS
     # ============================
-    st.subheader("🤖 Gemini AI Insights")
+    st.subheader("🤖 AI Analysis for Your Target Role")
 
-    if st.button("🔎 Validate Role with Gemini"):
-        validated = validate_role_with_gemini(
-            resume_text, [r for r, _ in predictions]
-        )
-        st.info(validated)
+    if st.button("🔎 Analyze Alignment"):
+        alignment = get_alignment_feedback(resume_text, target_role)
+        st.info(alignment)
 
-    if st.button("🧠 Get AI Resume Feedback"):
-        feedback = get_resume_feedback(resume_text, top_role)
+    if st.button("🧠 Get Resume Improvement Suggestions"):
+        feedback = get_resume_feedback(resume_text, target_role)
         st.info(feedback)
 
-    if st.button("✨ Generate Improved Resume"):
-        improved = generate_improved_resume(resume_text, top_role)
+    if st.button("✨ Generate Target-Role Optimized Resume"):
+        improved = generate_improved_resume(resume_text, target_role)
 
         st.text_area(
-            "📄 Improved Resume (AI Optimized)",
+            "📄 Improved Resume (Target Role Optimized)",
             improved,
-            height=350,
-            key="improved_resume_area"
+            height=350
         )
 
         st.download_button(
             "📥 Download Improved Resume",
             improved,
-            file_name="Improved_Resume.txt",
-            mime="text/plain",
-            key="download_btn"
+            file_name=f"Improved_Resume_{target_role.replace(' ', '_')}.txt",
+            mime="text/plain"
         )
