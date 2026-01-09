@@ -66,7 +66,7 @@ GEMINI_MODEL_NAME = "models/gemini-1.0-pro"
 
 def gemini_call(prompt):
     try:
-        genai.configure(api_key=st.secrets["AIzaSyBte2_W5KqvhAEal8i6Q7XCTBu2FFhWiYE"])
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         response = model.generate_content(prompt)
         return response.text
